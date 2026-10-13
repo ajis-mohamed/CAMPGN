@@ -35,14 +35,18 @@ export default function CreatorDetails() {
     const displayLanguages = user?.languages || "Tamil + English";
     const displayTier = user?.tier || "Standard";
     const displayTurnaround = user?.turnaround || "3-5 days";
-    const avatarImg = user?.profileImage || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80";
+    const avatarImg = user?.profileImage
+
+    // File Image Handle For Profile State
+    const [file, setFile] = useState(null)
 
     // 4. Handle file selection for computer image upload
     const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const imageUrl = window.URL.createObjectURL(file);
-            setFormData({ ...formData, avatarUrl: imageUrl });
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            // For Immediate Actions
+            setFormData(prev => ({ ...prev, avatarUrl: URL.createObjectURL(selectedFile) }));
         }
     };
 
@@ -56,7 +60,8 @@ export default function CreatorDetails() {
             return;
         }
 
-        const updatedData = {
+        // Send JSON because this backend route does not currently parse file uploads.
+        const dataToSend = {
             ...user,
             accountType: "creator",
             name: formData.creatorName,
@@ -66,14 +71,16 @@ export default function CreatorDetails() {
             languages: formData.languages,
             tier: formData.tier,
             turnaround: formData.turnaround,
-            profileImage: formData.avatarUrl,
+            // Do not save a temporary blob URL as a permanent profile image.
+            profileImage: file ? user.profileImage : formData.avatarUrl,
         };
 
         setIsLoading(true);
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/creator/saveprofile`, updatedData);
+            const response = await axios.post(`${API_BASE_URL}/creator/saveprofile`, dataToSend);
             setUser(response.data.updatedCreator);
+            setFile(null);
             setIsEditOpen(false);
         } catch (error) {
             console.error("Error saving profile:", error);

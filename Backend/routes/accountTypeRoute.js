@@ -3,24 +3,12 @@ const router = express.Router();
 
 const brand = require("../models/Brand");
 const creator = require("../models/Creator");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// GET /accounttype?uid=...
-router.get("/", async (req, res) => {
+// GET accounttype
+router.get("/", authMiddleware, async (req, res) => {
     try {
-        const { uid } = req.query;
-
-        // 1. Validate that UID was provided
-        if (!uid?.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "UID parameter is required."
-            });
-        }
-
-        const trimmedUid = uid.trim();
-
-        // 2. Search in Brand collection
-        const brandUser = await brand.findOne({ uid: trimmedUid });
+        const brandUser = await brand.findOne({ uid: req.user.uid });
         if (brandUser) {
             return res.status(200).json({
                 success: true,
@@ -28,8 +16,7 @@ router.get("/", async (req, res) => {
             });
         }
 
-        // 3. Search in Creator collection
-        const creatorUser = await creator.findOne({ uid: trimmedUid });
+        const creatorUser = await creator.findOne({ uid: req.user.uid });
         if (creatorUser) {
             return res.status(200).json({
                 success: true,

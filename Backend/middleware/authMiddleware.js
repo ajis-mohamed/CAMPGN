@@ -24,7 +24,6 @@ const authMiddleware = async (req, res, next) => {
 
         const idToken = authHeader.split(" ")[1];
         
-
         // Verify the Firebase ID token
         const decodedToken = await getAuth().verifyIdToken(idToken);
 

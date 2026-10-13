@@ -45,8 +45,14 @@ function App() {
       setAccountTypeLoading(true);
 
       try {
+        const idToken = await currentUser.getIdToken();
         const response = await axios.get(
-          `${URL}accounttype?uid=${currentUser.uid}`
+          `${URL}accounttype`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
         );
         const resolvedAccountType = response.data.accountType;
 

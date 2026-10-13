@@ -26,7 +26,16 @@ function Login() {
     const [errorMessage, setErrorMessage] = useState("");
 
     const completeLogin = async (user) => {
-        const response = await axios.get(`${URL}accounttype?uid=${user.uid}`);
+        // 1. Get the Firebase ID token from the authenticated user
+        const idToken = await user.getIdToken();
+
+        // 2. Pass the token in the headers so authMiddleware accepts it
+        const response = await axios.get(`${URL}accounttype`, {
+            headers: {
+                Authorization: `Bearer ${idToken}`
+            }
+        });
+
         const accountType = response.data.accountType;
 
         if (accountType !== "brand" && accountType !== "creator") {
@@ -36,7 +45,6 @@ function Login() {
         setAuthState(user, accountType);
         navigate(`/${accountType}/dashboard`);
     };
-
     // Form Submission & Firebase Error Handling
     const handleSubmit = async (e) => {
         e.preventDefault();

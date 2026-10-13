@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const creator = require("../models/Creator");
+const creatorWork = require("../models/CreatorWork")
 
 const authMiddleware = require("../middleware/authMiddleware")
 
@@ -161,5 +162,68 @@ router.post("/saveprofile", async (req, res) => {
     }
 });
 
+router.post("/savenarratives", async (req, res) => {
+    try {
+        const { creatorUid, works } = req.body;
+
+        if (!creatorUid) {
+            return res.status(400).json({ success: false, message: "creatorUid is required." });
+        }
+
+        // Find and update the document, or create it if it doesn't exist
+        const updatedRecord = await creatorWork.findOneAndUpdate(
+            { creatorUid: creatorUid },
+            { $set: { works: works } },
+            { new: true, upsert: true }
+        );
+
+        console.log("Successfully saved works for creator:", creatorUid);
+
+        return res.status(200).json({
+            success: true,
+            message: "Works saved successfully!",
+            data: updatedRecord
+        });
+
+    } catch (error) {
+        console.error("Error saving works:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error while saving works.",
+            error: error.message
+        });
+    }
+});
+
+router.get("/getworks/:creatorUid", async (req, res) => {
+    try {
+        const { creatorUid } = req.params;
+
+        if (!creatorUid) {
+            return res.status(400).json({ success: false, message: "creatorUid is required." });
+        }
+
+        // Find the record matching the creator's UID
+        const record = await creatorWork.findOne({ creatorUid: creatorUid });
+
+        if (!record) {
+            return res.status(404).json({ success: false, message: "No works found for this creator.", data: { works: [] } });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Works fetched successfully!",
+            data: record
+        });
+
+    } catch (error) {
+        console.error("Error fetching works:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error while fetching works.",
+            error: error.message
+        });
+    }
+});
 
 module.exports = router;
