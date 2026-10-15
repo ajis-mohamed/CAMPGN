@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 // Zustand
 import useUserStore from "./zustand/useUserStore";
 import CreatorProfile from "./pages/creator/CreatorProfile";
+import BrandProfile from "./pages/brand/BrandProfile";
 
 const URL = "http://localhost:5000/";
 
@@ -181,6 +182,18 @@ function App() {
               allowedType="brand"
             >
               <BrandDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/brand/profile"
+          element={
+            <ProtectedRoute
+              accountTypeLoading={accountTypeLoading}
+              allowedType="brand"
+            >
+              <BrandProfile />
             </ProtectedRoute>
           }
         />

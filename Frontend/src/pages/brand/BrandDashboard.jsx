@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { logoutUser } from '../../services/authService';
 import Sidebar from '../../components/shared/Sidebar';
 import Navbar from '../../components/shared/Navbar';
-import Welcomes from '../../components/brand/Welcomes';
-import BrandActiveCampaign from '../../components/brand/BrandActiveCampaign';
-import BrandApplications from '../../components/brand/BrandApplications';
+import Welcomes from '../../components/brand/dashboard/Welcomes';
+import BrandActiveCampaign from '../../components/brand/dashboard/BrandActiveCampaign';
+import BrandApplication from '../../components/brand/dashboard/BrandApplication';
 
 
 function BrandDashboard() {
@@ -37,7 +37,7 @@ function BrandDashboard() {
         <main className="flex-1 p-1 sm:p-6 md:p-3">
           <Welcomes />
           <BrandActiveCampaign />
-          <BrandApplications />
+          <BrandApplication />
         </main>
       </div>
     </div>

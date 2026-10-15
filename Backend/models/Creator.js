@@ -51,6 +51,10 @@ const creatorSchema = new mongoose.Schema(
         contentNiche: {
             type: [String],
             default: [],
+            validate: {
+                validator: (items) => items.length <= 5,
+                message: "You can add up to 5 content specialities."
+            }
         },
 
         targetAudience: {
@@ -62,6 +66,10 @@ const creatorSchema = new mongoose.Schema(
         collabTypes: {
             type: [String],
             default: [],
+            validate: {
+                validator: (items) => items.length <= 5,
+                message: "You can add up to 5 preferred partnerships."
+            }
         },
 
         location: {

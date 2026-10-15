@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     Sparkles,
     Eye,
@@ -6,7 +5,7 @@ import {
     ArrowUpRight
 } from 'lucide-react';
 
-export default function BrandApplications() {
+export default function BrandApplication() {
     // Static application items
     const applications = [
         {

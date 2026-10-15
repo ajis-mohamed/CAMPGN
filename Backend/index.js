@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose")
 const dotenv = require("dotenv");
+const cloudinary = require("cloudinary").v2;
 const brand = require("./models/Brand")
 const creator = require("./models/Creator")
 
@@ -10,6 +11,11 @@ const creatorRoutes = require("./routes/creatorRoutes");
 const accountType = require("./routes/accountTypeRoute")
 
 dotenv.config();
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app = express();
 

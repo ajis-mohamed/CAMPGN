@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link2, Camera, Video, CheckCircle2, Plus, X } from 'lucide-react';
+import axios from 'axios';
+import useUserStore from '../../../zustand/useUserStore';
+import { getAuthHeaders } from '../../../services/authService';
 
 export default function CreatorChannels() {
+    const user = useUserStore((state) => state.user);
+    const API_BASE_URL = "http://localhost:5000";
+
     // Modal open/close state
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [saveError, setSaveError] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
 
     // List of connected channels stored locally in state
     const [channels, setChannels] = useState([]);
@@ -18,39 +26,127 @@ export default function CreatorChannels() {
         youtubeUrl: ""
     });
 
-    const handleSave = (e) => {
+    // Fetch saved channels on component mount
+    useEffect(() => {
+        const fetchChannels = async () => {
+            if (!user?.uid) return;
+
+            try {
+                const response = await axios.get(`${API_BASE_URL}/creator/getchannels/${user.uid}`, {
+                    headers: await getAuthHeaders()
+                });
+                if (response.data.success && Array.isArray(response.data.channels)) {
+                    setChannels(response.data.channels);
+                }
+            } catch (error) {
+                console.error("Error fetching channels:", error);
+                setSaveError(error.response?.data?.message || "Could not load channels. Please refresh and try again.");
+            }
+        };
+
+        fetchChannels();
+    }, [user?.uid]);
+
+    const handleSave = async (e) => {
         e.preventDefault();
+        setSaveError("");
+
+        if (!user?.uid) {
+            setSaveError("Please sign in again before saving channels.");
+            return;
+        }
+
+        const instagramHandle = formData.instagramHandle.trim();
+        const instagramUrl = formData.instagramUrl.trim();
+        const youtubeHandle = formData.youtubeHandle.trim();
+        const youtubeUrl = formData.youtubeUrl.trim();
+
+        if ((instagramHandle && !instagramUrl) || (!instagramHandle && instagramUrl)) {
+            setSaveError("Enter both an Instagram handle and profile link, or leave both empty.");
+            return;
+        }
+        if ((youtubeHandle && !youtubeUrl) || (!youtubeHandle && youtubeUrl)) {
+            setSaveError("Enter both a YouTube handle and channel link, or leave both empty.");
+            return;
+        }
+        for (const [label, value, allowedHosts] of [
+            ["Instagram", instagramUrl, ["instagram.com"]],
+            ["YouTube", youtubeUrl, ["youtube.com", "m.youtube.com", "youtu.be"]]
+        ]) {
+            if (!value) continue;
+            try {
+                const url = new URL(value);
+                const host = url.hostname.toLowerCase().replace(/^www\./, "");
+                if (!["http:", "https:"].includes(url.protocol) || !allowedHosts.includes(host)) {
+                    throw new Error();
+                }
+            } catch {
+                setSaveError(label === "Instagram"
+                    ? "Enter a valid Instagram profile link using instagram.com."
+                    : "Enter a valid YouTube channel link using youtube.com or youtu.be.");
+                return;
+            }
+        }
 
         const newChannels = [];
 
         // Add Instagram if handle is provided
-        if (formData.instagramHandle.trim()) {
+        if (instagramHandle) {
             newChannels.push({
                 platform: "Instagram",
-                handle: formData.instagramHandle.startsWith('@') ? formData.instagramHandle : `@${formData.instagramHandle}`,
+                handle: instagramHandle.startsWith('@') ? instagramHandle : `@${instagramHandle}`,
                 metrics: formData.instagramFollowers ? `${formData.instagramFollowers} Followers` : "Followers",
-                icon: <Camera className="w-5 h-5 text-pink-600" />,
+                url: instagramUrl,
                 bgColor: "bg-pink-50/60",
-                borderColor: "border-pink-100/60",
-                url: formData.instagramUrl || "#"
+                borderColor: "border-pink-100/60"
             });
         }
 
         // Add YouTube if handle is provided
-        if (formData.youtubeHandle.trim()) {
+        if (youtubeHandle) {
             newChannels.push({
                 platform: "YouTube",
-                handle: formData.youtubeHandle.startsWith('@') ? formData.youtubeHandle : `@${formData.youtubeHandle}`,
+                handle: youtubeHandle.startsWith('@') ? youtubeHandle : `@${youtubeHandle}`,
                 metrics: formData.youtubeSubscribers ? `${formData.youtubeSubscribers} Subscribers` : "Subscribers",
-                icon: <Video className="w-5 h-5 text-red-600" />,
+                url: youtubeUrl,
                 bgColor: "bg-red-50/60",
-                borderColor: "border-red-100/60",
-                url: formData.youtubeUrl || "#"
+                borderColor: "border-red-100/60"
             });
         }
 
-        setChannels(newChannels);
-        setIsEditOpen(false);
+        setIsSaving(true);
+        try {
+            const response = await axios.post(`${API_BASE_URL}/creator/savechannels`, {
+                channels: newChannels
+            }, {
+                headers: await getAuthHeaders()
+            });
+
+            if (response.data.success) {
+                setChannels(response.data.data.channels);
+                setIsEditOpen(false);
+            }
+        } catch (error) {
+            console.error("Error saving channels to DB:", error);
+            setSaveError(error.response?.data?.message || error.message || "Could not save channels. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const openChannelEditor = () => {
+        const instagram = channels.find((channel) => channel.platform === "Instagram");
+        const youtube = channels.find((channel) => channel.platform === "YouTube");
+        setFormData({
+            instagramHandle: instagram?.handle?.replace(/^@/, "") || "",
+            instagramFollowers: instagram?.metrics?.replace(/ Followers$/, "") || "",
+            instagramUrl: instagram?.url || "",
+            youtubeHandle: youtube?.handle?.replace(/^@/, "") || "",
+            youtubeSubscribers: youtube?.metrics?.replace(/ Subscribers$/, "") || "",
+            youtubeUrl: youtube?.url || ""
+        });
+        setSaveError("");
+        setIsEditOpen(true);
     };
 
     const hasChannels = channels.length > 0;
@@ -70,7 +166,7 @@ export default function CreatorChannels() {
                 {hasChannels && (
                     <button
                         type="button"
-                        onClick={() => setIsEditOpen(true)}
+                        onClick={openChannelEditor}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all cursor-pointer"
                     >
                         <Plus className="w-3.5 h-3.5 text-slate-500" />
@@ -78,6 +174,10 @@ export default function CreatorChannels() {
                     </button>
                 )}
             </div>
+
+            {saveError && !isEditOpen && (
+                <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>
+            )}
 
             {/* Conditional Rendering: Empty State vs Filled Grid */}
             {!hasChannels ? (
@@ -92,7 +192,7 @@ export default function CreatorChannels() {
                     </p>
                     <button
                         type="button"
-                        onClick={() => setIsEditOpen(true)}
+                        onClick={openChannelEditor}
                         className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm shadow-blue-500/20 active:scale-[0.98] cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
@@ -102,45 +202,53 @@ export default function CreatorChannels() {
             ) : (
                 /* Filled State Grid */
                 <div className="grid grid-cols-1 content-center gap-4 items-stretch">
-                    {channels.map((channel, index) => (
-                        <div
-                            key={index}
-                            className="min-w-0 bg-slate-50/70 border border-slate-200/70 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 transition-all hover:border-slate-300"
-                        >
-                            {/* Left Side: Icon + Handle + Follower Stats */}
-                            <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                                <div className={`w-12 h-12 rounded-xl ${channel.bgColor} ${channel.borderColor} border flex items-center justify-center shrink-0 shadow-2xs`}>
-                                    {channel.icon}
+                    {channels.map((channel, index) => {
+                        const isIg = channel.platform === "Instagram";
+                        const iconElement = isIg ? (
+                            <Camera className="w-5 h-5 text-pink-600" />
+                        ) : (
+                            <Video className="w-5 h-5 text-red-600" />
+                        );
+
+                        return (
+                            <div
+                                key={index}
+                                className="min-w-0 bg-slate-50/70 border border-slate-200/70 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 transition-all hover:border-slate-300"
+                            >
+                                {/* Left Side: Icon + Handle + Follower Stats */}
+                                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                    <div className={`w-12 h-12 rounded-xl ${channel.bgColor} ${channel.borderColor} border flex items-center justify-center shrink-0 shadow-2xs`}>
+                                        {iconElement}
+                                    </div>
+
+                                    <div className="space-y-0.5 min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <a
+                                                href={channel.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm font-bold text-slate-900 truncate hover:underline"
+                                            >
+                                                {channel.handle}
+                                            </a>
+                                            <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-50 shrink-0" title="Verified Channel" />
+                                        </div>
+                                        <div className="flex min-w-0 items-center gap-1.5 text-xs text-slate-500 font-medium whitespace-nowrap">
+                                            <span className="truncate">{channel.metrics}</span>
+                                            <span>•</span>
+                                            <span className="truncate">{channel.platform}</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-0.5 min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                        {/* Clickable link opening in a new tab */}
-                                        <a
-                                            href={channel.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-sm font-bold text-slate-900 truncate hover:underline"
-                                        >
-                                            {channel.handle}
-                                        </a>
-                                        <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-50 shrink-0" title="Verified Channel" />
-                                    </div>
-                                    <div className="flex min-w-0 items-center gap-1.5 text-xs text-slate-500 font-medium whitespace-nowrap">
-                                        <span className="truncate">{channel.metrics}</span>
-                                        <span>•</span>
-                                        <span className="truncate">{channel.platform}</span>
-                                    </div>
+                                {/* Right Side: Live Sync Status Badge */}
+                                <div className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100/80 shrink-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span>Live Sync</span>
                                 </div>
                             </div>
-
-                            {/* Right Side: Live Sync Status Badge */}
-                            <div className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100/80 shrink-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>Live Sync</span>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -152,6 +260,7 @@ export default function CreatorChannels() {
                             <h3 className="text-lg font-semibold text-gray-900">Connect Social Channels</h3>
                             <button
                                 type="button"
+                                disabled={isSaving}
                                 onClick={() => setIsEditOpen(false)}
                                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 cursor-pointer"
                             >
@@ -160,6 +269,12 @@ export default function CreatorChannels() {
                         </div>
 
                         <form onSubmit={handleSave} className="mt-6 space-y-5">
+                            {saveError && (
+                                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                    {saveError}
+                                </p>
+                            )}
+                            <p className="text-xs text-gray-500">Leave a channel's handle and link empty to remove it. Leave both channels empty to disconnect all channels.</p>
                             {/* Instagram Section */}
                             <div className="space-y-3 p-4 bg-slate-50/60 rounded-xl border border-slate-200/60">
                                 <h4 className="text-xs font-bold text-pink-600 uppercase tracking-wide flex items-center gap-1.5">
@@ -242,6 +357,7 @@ export default function CreatorChannels() {
                             <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                                 <button
                                     type="button"
+                                    disabled={isSaving}
                                     onClick={() => setIsEditOpen(false)}
                                     className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
                                 >
@@ -249,9 +365,10 @@ export default function CreatorChannels() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 cursor-pointer"
+                                    disabled={isSaving}
+                                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                    Save Channels
+                                    {isSaving ? "Saving..." : "Save Channels"}
                                 </button>
                             </div>
                         </form>

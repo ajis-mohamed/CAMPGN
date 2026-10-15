@@ -1,11 +1,9 @@
-import React from 'react';
 import { Compass, UploadCloud } from 'lucide-react';
-import useUserStore from '../../zustand/useUserStore';
+import useUserStore from '../../../zustand/useUserStore';
 
 export default function Welcomes() {
     const user = useUserStore((state) => state.user);
     const userName = user?.name ? user.name.trim().split(/\s+/)[0] : "User";
-console.log(user)
     // Get time of day for dynamic greeting
     const getGreeting = () => {
         const hour = new Date().getHours();

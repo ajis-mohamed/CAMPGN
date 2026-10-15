@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { UserCheck, Edit3, FileText, Link as LinkIcon, MapPin, Utensils, Languages, ShieldCheck, X, Upload, Loader2 } from 'lucide-react';
 import useUserStore from '../../../zustand/useUserStore';
 import axios from "axios";
+import { getAuthHeaders } from '../../../services/authService';
 
 export default function CreatorDetails() {
     // 1. Fetch user data and setter from Zustand store
@@ -51,48 +52,80 @@ export default function CreatorDetails() {
     };
 
     // Save to the creator endpoint with loading state enabled during the network request.
+
     const handleSave = async (e) => {
         e.preventDefault();
         setSaveError("");
 
         if (!user?.uid || !user?.email) {
-            setSaveError("Your creator profile is not loaded. Refresh the page and try again.");
+            setSaveError(
+                "Your creator profile is not loaded. Refresh the page and try again."
+            );
             return;
         }
-
-        // Send JSON because this backend route does not currently parse file uploads.
-        const dataToSend = {
-            ...user,
-            accountType: "creator",
-            name: formData.creatorName,
-            username: formData.handle,
-            niche: formData.role,
-            location: formData.location,
-            languages: formData.languages,
-            tier: formData.tier,
-            turnaround: formData.turnaround,
-            // Do not save a temporary blob URL as a permanent profile image.
-            profileImage: file ? user.profileImage : formData.avatarUrl,
-        };
 
         setIsLoading(true);
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/creator/saveprofile`, dataToSend);
+            let profileImageUrl = user.profileImage || "";
+
+            // STEP 1: Upload the selected image to Cloudinary.
+            if (file) {
+                const formDataToUpload = new FormData();
+                formDataToUpload.append("profileImage", file);
+
+                const uploadResponse = await axios.post(
+                    `${API_BASE_URL}/creator/upload-profile-image`,
+                    formDataToUpload,
+                    {
+                        headers: await getAuthHeaders(),
+                    }
+                );
+
+                profileImageUrl = uploadResponse.data.profileImage;
+            }
+
+            // STEP 2: Save the creator's profile details.
+            const dataToSend = {
+                ...user,
+                accountType: "creator",
+                name: formData.creatorName,
+                username: formData.handle,
+                niche: formData.role,
+                location: formData.location,
+                languages: formData.languages,
+                tier: formData.tier,
+                turnaround: formData.turnaround,
+                profileImage: profileImageUrl,
+            };
+
+            const response = await axios.post(
+                `${API_BASE_URL}/creator/saveprofile`,
+                dataToSend,
+                {
+                    headers: await getAuthHeaders(),
+                }
+            );
+
+            // STEP 3: Update the frontend's Zustand state.
             setUser(response.data.updatedCreator);
             setFile(null);
             setIsEditOpen(false);
+
         } catch (error) {
             console.error("Error saving profile:", error);
+
             setSaveError(
                 error.response?.data?.message ||
                 error.response?.data?.error ||
+                error.message ||
                 "Could not save your profile. Please try again."
             );
         } finally {
             setIsLoading(false);
         }
     };
+
 
     return (
         <div className="w-full min-w-0 bg-white border border-slate-200/80 rounded-2xl shadow-sm p-6 mb-6 transition-all">

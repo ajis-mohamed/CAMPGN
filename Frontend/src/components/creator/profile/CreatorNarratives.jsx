@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BookOpen, Sparkles, Plus, Edit3, X, CheckCircle2, Award, Target, Heart } from 'lucide-react';
 import useUserStore from '../../../zustand/useUserStore';
+import { getAuthHeaders } from '../../../services/authService';
 import axios from 'axios';
 
 export default function CreatorNarratives() {
@@ -15,10 +16,58 @@ export default function CreatorNarratives() {
     // Form state initialized with existing user narrative data or defaults
     const [formData, setFormData] = useState({
         bio: user?.bio || "",
-        contentNiche: Array.isArray(user?.contentNiche) ? user.contentNiche.join(", ") : "",
+        contentNiche: Array.isArray(user?.contentNiche) ? user.contentNiche : [],
         targetAudience: user?.targetAudience || "",
-        collabTypes: Array.isArray(user?.collabTypes) ? user.collabTypes.join(", ") : ""
+        collabTypes: Array.isArray(user?.collabTypes) ? user.collabTypes : []
     });
+
+    // Temporary input fields for adding items one-by-one
+    const [nicheInput, setNicheInput] = useState("");
+    const [collabInput, setCollabInput] = useState("");
+
+    const handleAddNiche = () => {
+        if (formData.contentNiche.length >= 5) {
+            setSaveError("You can add up to 5 content specialities.");
+            return;
+        }
+        if (nicheInput.trim() && !formData.contentNiche.includes(nicheInput.trim())) {
+            setFormData({
+                ...formData,
+                contentNiche: [...formData.contentNiche, nicheInput.trim()]
+            });
+            setNicheInput("");
+            setSaveError("");
+        }
+    };
+
+    const handleRemoveNiche = (indexToRemove) => {
+        setFormData({
+            ...formData,
+            contentNiche: formData.contentNiche.filter((_, index) => index !== indexToRemove)
+        });
+    };
+
+    const handleAddCollab = () => {
+        if (formData.collabTypes.length >= 5) {
+            setSaveError("You can add up to 5 preferred partnerships.");
+            return;
+        }
+        if (collabInput.trim() && !formData.collabTypes.includes(collabInput.trim())) {
+            setFormData({
+                ...formData,
+                collabTypes: [...formData.collabTypes, collabInput.trim()]
+            });
+            setCollabInput("");
+            setSaveError("");
+        }
+    };
+
+    const handleRemoveCollab = (indexToRemove) => {
+        setFormData({
+            ...formData,
+            collabTypes: formData.collabTypes.filter((_, index) => index !== indexToRemove)
+        });
+    };
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -29,22 +78,29 @@ export default function CreatorNarratives() {
             return;
         }
 
-        const formattedNiche = formData.contentNiche.split(",").map(item => item.trim()).filter(Boolean);
-        const formattedCollabs = formData.collabTypes.split(",").map(item => item.trim()).filter(Boolean);
+        if (formData.bio.length > 500) {
+            setSaveError("Bio cannot be longer than 500 characters.");
+            return;
+        }
+        if (formData.contentNiche.length > 5 || formData.collabTypes.length > 5) {
+            setSaveError("Content specialities and preferred partnerships can each have up to 5 items.");
+            return;
+        }
 
         const updatedData = {
             ...user,
             accountType: user.accountType,
             bio: formData.bio,
-            contentNiche: formattedNiche,
+            contentNiche: formData.contentNiche,
             targetAudience: formData.targetAudience,
-            collabTypes: formattedCollabs
+            collabTypes: formData.collabTypes
         };
 
         setIsSaving(true);
         try {
-            // Persist the narrative fields to the creator profile before updating the local store.
-            const response = await axios.post("http://localhost:5000/creator/saveprofile", updatedData);
+            const response = await axios.post("http://localhost:5000/creator/saveprofile", updatedData, {
+                headers: await getAuthHeaders()
+            });
             setUser(response.data.updatedCreator);
             setIsEditOpen(false);
         } catch (error) {
@@ -52,6 +108,7 @@ export default function CreatorNarratives() {
             setSaveError(
                 error.response?.data?.message ||
                 error.response?.data?.error ||
+                error.message ||
                 "Could not save your creator narrative. Please try again."
             );
         } finally {
@@ -65,20 +122,20 @@ export default function CreatorNarratives() {
         (Array.isArray(user?.collabTypes) && user.collabTypes.length > 0);
 
     const openEditor = () => {
-        // Refresh the modal values when opened so edits use the latest profile saved elsewhere.
         setFormData({
             bio: user?.bio || "",
-            contentNiche: Array.isArray(user?.contentNiche) ? user.contentNiche.join(", ") : "",
+            contentNiche: Array.isArray(user?.contentNiche) ? [...user.contentNiche] : [],
             targetAudience: user?.targetAudience || "",
-            collabTypes: Array.isArray(user?.collabTypes) ? user.collabTypes.join(", ") : ""
+            collabTypes: Array.isArray(user?.collabTypes) ? [...user.collabTypes] : []
         });
+        setNicheInput("");
+        setCollabInput("");
         setSaveError("");
         setIsEditOpen(true);
     };
 
     return (
         <div className="w-full bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5 sm:p-6 mb-6">
-
             {/* Section Header */}
             <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
@@ -95,7 +152,7 @@ export default function CreatorNarratives() {
                     <button
                         type="button"
                         onClick={openEditor}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer"
                     >
                         <Edit3 className="w-3.5 h-3.5 text-slate-500" />
                         <span>Edit Narrative</span>
@@ -116,7 +173,7 @@ export default function CreatorNarratives() {
                     <button
                         type="button"
                         onClick={openEditor}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm shadow-blue-500/20 active:scale-[0.98]"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm shadow-blue-500/20 active:scale-[0.98] cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Add Creator Narrative</span>
@@ -184,7 +241,7 @@ export default function CreatorNarratives() {
                     <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl sm:p-8 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                             <h3 className="text-lg font-semibold text-gray-900">Configure Creator Narrative</h3>
-                            <button type="button" onClick={() => setIsEditOpen(false)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100">
+                            <button type="button" onClick={() => setIsEditOpen(false)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 cursor-pointer">
                                 <X size={20} />
                             </button>
                         </div>
@@ -196,33 +253,68 @@ export default function CreatorNarratives() {
                                 </p>
                             )}
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">About Creator / Bio</label>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-medium text-gray-700">About Creator / Bio</label>
+                                    <span className={`text-[10px] font-semibold ${formData.bio.length > 500 ? 'text-red-600' : 'text-gray-400'}`}>
+                                        {formData.bio.length}/500 chars
+                                    </span>
+                                </div>
                                 <textarea
                                     rows={4}
-                                    required
+                                    maxLength={500}
+                                    placeholder="Write a short bio about yourself..."
                                     value={formData.bio}
                                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                                     className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none resize-none"
                                 />
                             </div>
 
+                            {/* Content Specialities - Add One by One */}
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Content Specialities (comma-separated)</label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="e.g. Street Food, Quick Recipes"
-                                    value={formData.contentNiche}
-                                    onChange={(e) => setFormData({ ...formData, contentNiche: e.target.value })}
-                                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                                />
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Content Specialities</label>
+                                <div className="flex gap-2 mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Street Food"
+                                        disabled={formData.contentNiche.length >= 5}
+                                        value={nicheInput}
+                                        onChange={(e) => setNicheInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddNiche();
+                                            }
+                                        }}
+                                        className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddNiche}
+                                        disabled={formData.contentNiche.length >= 5}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition cursor-pointer"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500">{formData.contentNiche.length}/5 added</p>
+                                {formData.contentNiche.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                                        {formData.contentNiche.map((item, index) => (
+                                            <span key={index} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-medium shadow-2xs">
+                                                {item}
+                                                <button type="button" onClick={() => handleRemoveNiche(index)} className="text-slate-400 hover:text-red-500 cursor-pointer">
+                                                    <X size={12} />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Primary Audience Description</label>
                                 <input
                                     type="text"
-                                    required
                                     placeholder="e.g. Food enthusiasts, home cooks aged 18–35"
                                     value={formData.targetAudience}
                                     onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
@@ -230,23 +322,53 @@ export default function CreatorNarratives() {
                                 />
                             </div>
 
+                            {/* Preferred Partnerships - Add One by One */}
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Preferred Partnerships (comma-separated)</label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="e.g. Sponsored Reels, Brand Ambassadorships"
-                                    value={formData.collabTypes}
-                                    onChange={(e) => setFormData({ ...formData, collabTypes: e.target.value })}
-                                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                                />
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Preferred Partnerships</label>
+                                <div className="flex gap-2 mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Sponsored Reels"
+                                        disabled={formData.collabTypes.length >= 5}
+                                        value={collabInput}
+                                        onChange={(e) => setCollabInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddCollab();
+                                            }
+                                        }}
+                                        className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddCollab}
+                                        disabled={formData.collabTypes.length >= 5}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition cursor-pointer"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500">{formData.collabTypes.length}/5 added</p>
+                                {formData.collabTypes.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                                        {formData.collabTypes.map((collab, index) => (
+                                            <span key={index} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white text-emerald-700 border border-emerald-100 rounded-lg text-xs font-medium shadow-2xs">
+                                                {collab}
+                                                <button type="button" onClick={() => handleRemoveCollab(index)} className="text-emerald-400 hover:text-red-500 cursor-pointer">
+                                                    <X size={12} />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-                                <button type="button" onClick={() => setIsEditOpen(false)} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <button type="button" onClick={() => setIsEditOpen(false)} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={isSaving} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                                <button type="submit" disabled={isSaving} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">
                                     {isSaving ? "Saving..." : "Save Narrative"}
                                 </button>
                             </div>

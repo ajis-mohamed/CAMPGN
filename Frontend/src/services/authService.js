@@ -47,3 +47,13 @@ export const loginWithGoogle = async () => {
 export const logoutUser = async () => {
     await signOut(auth);
 };
+
+export const getAuthHeaders = async () => {
+    if (!auth.currentUser) {
+        throw new Error("Please sign in again to continue.");
+    }
+
+    return {
+        Authorization: `Bearer ${await auth.currentUser.getIdToken()}`
+    };
+};

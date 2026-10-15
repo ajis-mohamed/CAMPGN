@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import CreatorInsights from '../../components/creator/profile/CreatorInsights';
 import CreatorChannels from '../../components/creator/profile/CreatorChannels';
 import CreatorDemographics from '../../components/creator/profile/CreatorDemographics';
-import CreatorCollabEmptyState from '../../components/creator/profile/CreatorCollabEmptyState';
 import CreatorWork from '../../components/creator/profile/CreatorWork';
 import CreatorCollab from '../../components/creator/profile/CreatorCollab';
 import { logoutUser } from '../../services/authService';
